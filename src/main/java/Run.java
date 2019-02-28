@@ -24,13 +24,7 @@ public class Run {
 
     public static void main(String[] args) throws IOException, InterruptedException, ClassNotFoundException {
         File file = new File("F:\\log\\log.txt");
-
-        if (!file.exists()) {
-            file.createNewFile();
-        }
-
-        FileWriter fw = new FileWriter(file.getAbsoluteFile(), true);
-        BufferedWriter bw = new BufferedWriter(fw);
+        file.delete();
 
         num_features = Integer.parseInt(args[0]);
         lr = Float.parseFloat(args[1]);
@@ -44,18 +38,6 @@ public class Run {
                 for (int j = 1; j <= num_features; j++) {
                     theta[j] = 0.0f;
                 }
-            } else {
-
-                BufferedReader br1 = new BufferedReader(new InputStreamReader(hdfs.open(new Path(args[4] + "/part-r-00000"))));
-                String line1;
-
-                while ((line1 = br1.readLine()) != null) {
-                    String[] tmp = line1.split("\t");
-                    int index = Integer.parseInt(tmp[0].substring(5));
-                    theta[index] = Float.parseFloat(tmp[1]);
-                }
-
-                br1.close();
             }
 
             if (hdfs.exists(new Path(args[4]))) {
@@ -68,6 +50,7 @@ public class Run {
             for (int j = 1; j <= num_features; j++) {
                 conf.setFloat("theta".concat(String.valueOf(j)), theta[j]);
             }
+
             Job job = Job.getInstance(conf, "Calculation of Theta");
             job.setJarByClass(Run.class);
 
@@ -79,6 +62,32 @@ public class Run {
             job.setOutputKeyClass(Text.class);
             job.setOutputValueClass(FloatWritable.class);
             job.waitForCompletion(true);
+
+            BufferedReader br1 = new BufferedReader(new InputStreamReader(hdfs.open(new Path(args[4] + "/part-r-00000"))));
+            String line1;
+
+            while ((line1 = br1.readLine()) != null) {
+                String[] tmp = line1.split("\t");
+                int index = Integer.parseInt(tmp[0].substring(5));
+                theta[index] = Float.parseFloat(tmp[1]);
+            }
+
+            br1.close();
+
+            File log = new File("F:\\log\\loop".concat(String.valueOf(i)).concat(".txt"));
+
+            if (log.exists() == false) {
+                log.createNewFile();
+            }
+
+            FileWriter fw1 = new FileWriter(log.getAbsoluteFile(), false);
+            BufferedWriter bw1 = new BufferedWriter(fw1);
+
+            for (int j = 1; j <= num_features; j++) {
+                bw1.write("theta".concat(String.valueOf(j)) + "        " + theta[j] + "\n");
+            }
+
+            bw1.close();
 
             BufferedReader test = new BufferedReader(new InputStreamReader(hdfs.open(new Path(args[5] + "/dota2Test.csv"))));
             String s;
@@ -95,7 +104,7 @@ public class Run {
                 float sum = 0;
 
                 for (int j = 1; j < tmp.length; j++) {
-                    sum += (Xi[i] * theta[i]);
+                    sum += (Xi[j] * theta[j]);
                 }
 
                 float predict = (float) (1 / (1 + (Math.exp(-sum))));
@@ -110,11 +119,18 @@ public class Run {
             }
 
             test.close();
+
+            if (!file.exists()) {
+                file.createNewFile();
+            }
+
+            FileWriter fw = new FileWriter(file.getAbsoluteFile(), true);
+            BufferedWriter bw = new BufferedWriter(fw);
             bw.write("Accuracy of loop " + i + " is : " + (float) correct/total + "\n");
+            bw.close();
 
         }
 
         hdfs.close();
-        bw.close();
     }
 }
